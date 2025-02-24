@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytz
 
+from polygon_utils import aggregate_option_quotes,parse_option_ticker
+
 def fetch_underlying_price(client, ticker, date):
     """Fetch the closing price of the underlying ticker for a given date."""
     try:
@@ -119,6 +121,7 @@ def main():
     parser.add_argument("--strike_range", type=int, required=True, help="Strike range around the underlying price.")
     parser.add_argument("--strike_inc", type=int, required=True, help="Strike increment in dollars.")
     parser.add_argument("--output_file_base", type=str, required=True, help="Output CSV file path.")
+    parser.add_argument("--aggregate", action="store_true", help="Aggregate option quotes into a single CSV file.")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging.")
 
     args = parser.parse_args()
@@ -182,6 +185,8 @@ def main():
             df[['underlying', 'expiration', 'strike', 'option_type']] = df['ticker'].apply(
                 lambda x: pd.Series(parse_polygon_ticker(x))
             )
+            if args.aggregate:
+                df = aggregate_option_quotes(df)
             fname=f"{args.output_file_base}_{current_date}.csv"
             df.to_csv(fname, index=False)
         current_date += pd.Timedelta(days=1)
