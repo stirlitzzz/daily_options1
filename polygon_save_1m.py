@@ -5,7 +5,7 @@ import datetime
 import pytz
 from tqdm import tqdm  # For progress tracking
 
-def fetch_1m_aggregates(api_key, ticker, date):
+def fetch_1m_aggregates(api_key, ticker, date, args=None):
     """
     Fetch daily 1-minute aggregate bars from Polygon.io for a given underlying.
     
@@ -30,7 +30,8 @@ def fetch_1m_aggregates(api_key, ticker, date):
         )
         
         if not aggs:
-            print(f"No data found for {ticker} on {date}")
+            if args.verbose:
+                print(f"No data found for {ticker} on {date}")
             return pd.DataFrame()
 
         # Convert to DataFrame
@@ -72,6 +73,7 @@ def main():
     parser.add_argument("--start_date", type=str, required=True, help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end_date", type=str, required=True, help="End date (YYYY-MM-DD)")
     parser.add_argument("--output_dir", type=str, default=".", help="Directory to save CSV files")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
 
     args = parser.parse_args()
 
@@ -81,13 +83,15 @@ def main():
     print(f"Fetching 1-minute data for {args.ticker} from {args.start_date} to {args.end_date}")
 
     for date in tqdm(dates, desc="Fetching data"):  # Progress bar
-        df_1m = fetch_1m_aggregates(args.api_key, args.ticker, date)
+        df_1m = fetch_1m_aggregates(args.api_key, args.ticker, date, args=args)
         if not df_1m.empty:
             file_path = f"{args.output_dir}/{args.ticker}_1m_{date}.csv"
             df_1m.to_csv(file_path, index=False)
-            print(f"Saved: {file_path}")
+            if args.verbose:
+                print(f"Saved: {file_path}")
         else:
-            print(f"No data for {args.ticker} on {date}")
+            if args.verbose:
+                print(f"No data for {args.ticker} on {date}")
 
 if __name__ == "__main__":
     main()
