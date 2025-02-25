@@ -43,6 +43,7 @@ def fetch_1m_aggregates(api_key, ticker, date, args=None):
         # Convert UTC to Eastern Time
         eastern_tz = pytz.timezone("US/Eastern")
         df["timestamp_est"] = df["timestamp_utc"].dt.tz_convert(eastern_tz)
+        df["minute"] = df["timestamp_est"].dt.floor("T")+pd.Timedelta(minutes=1)
 
         # Rename columns
         df.rename(columns={"open": "open_price", "high": "high_price",

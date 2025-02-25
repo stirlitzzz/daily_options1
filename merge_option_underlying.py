@@ -27,7 +27,8 @@ def merge_files(nbbo_file, underlying_file, output_file):
 
     # Convert timestamps to datetime format
     df_nbbo["minute"] = pd.to_datetime(df_nbbo["minute"])
-    df_underlying["minute"] = pd.to_datetime(df_underlying["timestamp_est"])
+    df_nbbo["mid_price"]= (df_nbbo["bid_price"] + df_nbbo["ask_price"]) / 2
+    df_underlying["minute"] = pd.to_datetime(df_underlying["minute"])
 
     # Merge on the "minute" column
     df_merged = pd.merge(df_nbbo, df_underlying, on="minute", suffixes=("_opt", "_under"))
