@@ -8,7 +8,8 @@ from tqdm import tqdm
 import py_vollib.black_scholes_merton.implied_volatility
 import py_vollib_vectorized
 import copy
-
+from datetime import datetime
+import pytz
 
 
 from datetime import datetime
@@ -32,9 +33,16 @@ def create_4pm_datetime(localized_datetime):
     four_pm = datetime(date_part.year, date_part.month, date_part.day, 16, 17, 0)
     
     # Localize the new datetime object to the same timezone as the input datetime
-    localized_four_pm = localized_datetime.tzinfo.localize(four_pm)
-    
+    #localized_four_pm = localized_datetime.tzinfo.localize(four_pm)
+    timezone = localized_datetime.tzinfo  # Get the original timezone
+
+    if isinstance(timezone, pytz.tzinfo.BaseTzInfo):  # Ensure it's a valid pytz timezone
+        localized_four_pm = timezone.localize(four_pm)  # Use pytz localization
+    else:
+        localized_four_pm = four_pm.replace(tzinfo=timezone)  # Standard timezone assignment
+
     return localized_four_pm
+    
 
 def compute_implied_volatility(df):
 
@@ -101,7 +109,6 @@ def process_file(file_path, output_dir):
     try:
         # Load the data
         df = pd.read_csv(file_path)
-        
         # Convert timestamp columns to datetime
         if "timestamp_est_opt" in df.columns:
             df["timestamp_est_opt"] = pd.to_datetime(df["timestamp_est_opt"])
@@ -109,9 +116,11 @@ def process_file(file_path, output_dir):
             df["minute"] = pd.to_datetime(df["minute"])
 
         input_datetime = df["minute"].iloc[0]
+        print(f"input_datetime = {input_datetime}")
         localized_4pm = create_4pm_datetime(input_datetime)
         df["texp"]=localized_4pm-df["minute"]
         df["texp_years"]=df["texp"].dt.total_seconds()/31557600
+        print(f"df.columns = {df.columns}")
         df2=compute_implied_volatility(df)
         df3=compute_greeks(df2)
         result_df=compute_delta_weighted_volatility(df3)
@@ -130,6 +139,7 @@ def process_file(file_path, output_dir):
         return True
         
     except Exception as e:
+        print("inside process file")
         print(f"Error processing {file_path}: {e}")
         return False
 
