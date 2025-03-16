@@ -39,6 +39,7 @@ def compute_signals(df):
     df["max_price_60"] = df["implied_spot"].rolling(window=60).max()
     df["min_atm_vol_60"] = df["atm_vol"].rolling(window=60).min()
     df["max_atm_vol_60"] = df["atm_vol"].rolling(window=60).max()
+    df["mean_atm_vol_60"] = df["atm_vol"].rolling(window=60).mean()
     df["mean_price_60"] = df["implied_spot"].rolling(window=60).mean()
     df["mean_price_10"] = df["implied_spot"].rolling(window=10).mean()
     return df
