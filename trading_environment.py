@@ -695,7 +695,7 @@ class SimEnv2(gym.Env):
         if action == 0 and self.position == 0:  # Open position
             self.open_position()
             self.update_time_step(30)
-            reward = self.initial_spread
+            reward = self.initial_spread*0
 
         elif action == 1 and self.position != 0:  # Close position
             reward = self.df_today["open_straddle_pnl"].loc[self.global_index] - self.pnl
