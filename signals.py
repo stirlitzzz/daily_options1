@@ -201,7 +201,7 @@ class Recorder:
 
 def get_years_to_maturity(row):
     maturity = pd.Timestamp(row['minute'].date(), tz=row['minute'].tz) + pd.Timedelta(hours=16, minutes=17)
-    return (maturity - row['minute']).seconds / (365.25 * 24 * 60 * 60)
+    return (maturity - row['minute']).seconds / (252 * 24 * 60 * 60)
 
 def preprocess_df(df):
 

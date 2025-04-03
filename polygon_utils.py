@@ -14,7 +14,7 @@ def aggregate_option_quotes(df):
 """
 def aggregate_option_quotes(df):
     """aggregate option quotes for each ticker, by taking the row with the highest value of 'timestamp_est' for each minute"""
-    df["minute"] = df["timestamp_est"].dt.floor("T") + pd.Timedelta(minutes=1)
+    df["minute"] = df["timestamp_est"].dt.floor("min") + pd.Timedelta(minutes=1)
 
     all_tickers = df.ticker.unique()
     all_snapshots = []
