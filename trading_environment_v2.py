@@ -162,15 +162,21 @@ def run_episode(env):
 
 
 class StraddleEnvironment(gym.Env):
-    def __init__(self):
+    def __init__(self,env_config=None):
         super(StraddleEnvironment, self).__init__()
         self.action_space = spaces.Discrete(3)
         #self.observation_space = spaces.Box(low=0, high=1, shape=(1, 1), dtype=np.float32)
-        self.observation_space=spaces.Box(low=-np.inf, high=np.inf, shape=(10,), dtype=np.float32)
+        self.observation_space=spaces.Box(low=-np.inf, high=np.inf, shape=(23,), dtype=np.float32)
         self.episode_duration = timedelta(minutes=180)
-        #self.current_time = self.pick_initial_datetime()
-        #initial_state = self.data.loc[self.current_time]
-        loader = ZeroDTESurfaceLoader("./algo_data/vol_surfaces2.csv","./algo_data/spy_daily_prices.csv")
+ 
+
+        vol_surface_file = "./algo_data/vol_surfaces2.csv"
+        underlying_file = "./algo_data/spy_daily_prices.csv"
+        if env_config is not None:
+            vol_surface_file = env_config.get("vol_surface_file", vol_surface_file)
+            underlying_file = env_config.get("underlying_file", underlying_file)
+        #self.data, self.underlying_data = read_trading_sym_data(vol_surface_file, "./algo_data/spy_daily_prices.csv")
+        loader = ZeroDTESurfaceLoader(vol_surface_file,underlying_file)
         data, underlying_data = loader.load_data()
         market_data= MarketData(data, underlying_data)
         self.market_data=market_data
@@ -204,7 +210,7 @@ class StraddleEnvironment(gym.Env):
     def reset(self,seed=None):
         #if seed is not None:
         #    self.seed(seed)
-        self.current_time = pick_random_datetime(self.start_date,self.end_date, timedelta(hours=9,minutes=31), timedelta(hours=16,minutes=1)-self.episode_duration,self.market_data)
+        self.current_time = pick_random_datetime(self.start_date,self.end_date, timedelta(hours=9,minutes=31), timedelta(hours=15,minutes=45)-self.episode_duration,self.market_data)
         #print(f"current time: {self.current_time}")
         self.end_time = self.current_time + self.episode_duration
         #state = self._get_state()
@@ -243,8 +249,9 @@ class StraddleEnvironment(gym.Env):
                 #print(f"straddle price: {straddle_price}")
                 #print(f"current row: {market_row}")
                 #print(f"spot price: {spot_price}")
-                self.portfolio.add_option(self.current_time, 'SPY', 1, 'call', spot_price, self.option_expiry, straddle_price/2)
-                self.portfolio.add_option(self.current_time, 'SPY', 1, 'put', spot_price, self.option_expiry, straddle_price/2)
+                qty= 1
+                self.portfolio.add_option(self.current_time, 'SPY', qty, 'call', spot_price, self.option_expiry, straddle_price/2)
+                self.portfolio.add_option(self.current_time, 'SPY', qty, 'put', spot_price, self.option_expiry, straddle_price/2)
                 day_atm_vols = self.market_data.df_today["atm_vol"].to_numpy()
                 day_slopes = self.market_data.df_today["slope"].to_numpy()
                 day_quadratic_terms = self.market_data.df_today["quadratic_term"].to_numpy()
@@ -292,20 +299,56 @@ class StraddleEnvironment(gym.Env):
         row=self.market_data.get_current_row()
         yest_close = row["under_close_shifted"]
         time_remaining= (self.end_time - self.current_time)/self.episode_duration
+        
         state = {
-            "current_spot": row["implied_spot"] / yest_close,
-            "under_open": row["under_open"] / yest_close,
+            "current_spot": row["implied_spot"] / yest_close-1,
+            "under_open": row["under_open"] / yest_close-1,
             "atm_vol": row["atm_vol"],
             "scaled_slope": row["scaled_slope"],
             "scaled_quadratic": row["scaled_quadratic"],
-            "pct_straddle_price": row["pct_straddle_price"] / yest_close,
-            "texp": row["years_to_maturity"],
+            "pct_straddle_price": row["pct_straddle_price"],
+            "texp": np.sqrt(row["years_to_maturity"]),
             "yest_close": 1.0,  # normalized reference
             "time_remaining": time_remaining,
-            "has_position": 1.0 if self.position_opened else 0.0,
+            "min_price_60": row["min_price_60"] / yest_close-1,
+            "max_price_60": row["max_price_60"] / yest_close-1,
+            "mean_price_60": row["mean_price_60"] / yest_close-1,
+            "mean_price_10": row["mean_price_10"] / yest_close-1,
+            "under_min": row["under_min_price_20"] / yest_close-1,
+            "under_max": row["under_max_price_20"] / yest_close-1,
+            "under_mean": row["under_mean_price_20"] / yest_close-1,
+            "hvol_60": row["hvol_60"],
+            "under_hvol_20": row["under_hvol_20"],
+            "min_atm_vol_60": row["min_atm_vol_60"],
+            "max_atm_vol_60": row["max_atm_vol_60"],
+            "mean_atm_vol_60": row["mean_atm_vol_60"],
+            "pnl":self.last_pnl,
+            "has_position": 1.0 if self.position_opened else 0.0
         }
 
-        array_fields = ["current_spot", "under_open", "atm_vol", "scaled_slope", "scaled_quadratic", "pct_straddle_price","texp","yest_close", "time_remaining", "has_position"]
+        array_fields = ["current_spot", 
+                        "under_open", 
+                        "atm_vol", 
+                        "scaled_slope", 
+                        "scaled_quadratic", 
+                        "pct_straddle_price",
+                        "texp",
+                        "yest_close", 
+                        "time_remaining",
+                        "min_price_60",
+                        "max_price_60",
+                        "mean_price_60",
+                        "mean_price_10",
+                        "under_min",
+                        "under_max",
+                        "under_mean",
+                        "hvol_60",
+                        "under_hvol_20",
+                        "min_atm_vol_60",
+                        "max_atm_vol_60",
+                        "mean_atm_vol_60",
+                        "pnl",
+                        "has_position"]
         state_array = np.array([state[field] for field in array_fields],dtype=np.float32)
 
         return state, state_array, array_fields
@@ -314,6 +357,20 @@ class StraddleEnvironment(gym.Env):
         return {"time_remaining": state[0]}
 
     def _get_info(self):
+        result={
+            "current_time": self.current_time.isoformat(),
+            "end_time": self.end_time.isoformat(),
+            #"current_spot": self.market_data.get_current_row()["implied_spot"],
+            #"under_open": self.market_data.get_current_row()["under_open"],
+            #"atm_vol": self.market_data.get_current_row()["atm_vol"],
+            ##"scaled_slope": self.market_data.get_current_row()["scaled_slope"],
+            #scaled_quadratic": self.market_data.get_current_row()["scaled_quadratic"],
+            #"pct_straddle_price": self.market_data.get_current_row()["pct_straddle_price"],
+            #"texp": self.market_data.get_current_row()["years_to_maturity"],
+            #"yest_close": self.market_data.get_current_row()["under_close_shifted"],
+            #"time_remaining": (self.end_time - self.current_time)/self.episode_duration,
+            #"has_position": 1.0 if self.position_opened else 0.0
+        }
         return {}
 
 
@@ -383,6 +440,7 @@ def pick_random_datetime(start_date: datetime, end_date: datetime, start_time: t
 
     random_seconds = random.randint(int(start_time.total_seconds()), int(end_time.total_seconds()))//60*60
     random_datetime = datetime.combine(random_date, datetime.min.time()) + timedelta(seconds=random_seconds)
+    random_datetime = random_datetime.replace(second=0, microsecond=0)
     random_datetime = random_datetime.replace(tzinfo=ZoneInfo("US/Eastern"))
     #random_datetime = pytz.timezone(tz_str).localize(random_datetime)
     return random_datetime
